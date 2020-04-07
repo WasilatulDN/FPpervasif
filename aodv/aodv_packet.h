@@ -83,6 +83,8 @@ struct hdr_aodv_request {
         u_int32_t       rq_src_seqno;   // Source Sequence Number
 
         double          rq_timestamp;   // when REQUEST sent;
+
+        int test_add_packet;
 					// used to compute route discovery latency
 
   // This define turns on gratuitous replies- see aodv.cc for implementation contributed by
