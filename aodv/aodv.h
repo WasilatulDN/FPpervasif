@@ -143,6 +143,15 @@ private:
 	Event	intr;
 };
 
+class Cluster : public Handler {
+public:
+        Cluster(AODV* a) : agent(a) {}
+        void    handle(Event*);
+private:
+        AODV    *agent;
+    Event   intr;
+};
+
 class NeighborTimer : public Handler {
 public:
         NeighborTimer(AODV* a) : agent(a) {}
@@ -200,6 +209,7 @@ class AODV: public Agent {
         friend class aodv_rt_entry;
         friend class BroadcastTimer;
         friend class HelloTimer;
+        friend class Cluster;       
         friend class NeighborTimer;
         friend class RouteCacheTimer;
         friend class LocalRepairTimer;
@@ -238,6 +248,13 @@ class AODV: public Agent {
         AODV_Neighbor*       nb_lookup(nsaddr_t id);
         void            nb_delete(nsaddr_t id);
         void            nb_purge(void);
+
+        /*
+        * Cluster Management
+        */
+       int CH_ID;
+       int cluster_id;
+       void            calculateCHID();         
 
         /*
          * Broadcast ID Management

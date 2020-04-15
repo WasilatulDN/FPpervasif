@@ -39,13 +39,19 @@ The AODV code developed by the CMU/MONARCH group was optimized and tuned by Sami
 #define max(a,b)        ( (a) > (b) ? (a) : (b) )
 #define CURRENT_TIME    Scheduler::instance().clock()
 
-#define DEBUG
+//#define DEBUG
 //#define ERROR
+
+int count_neighbour[1000];    
+int count_mode[1000];       
+int masuk[1000];
+int nodes_count=0;            
+int th = 0;                 
+int old_th;
 
 #ifdef DEBUG
 static int route_request = 0;
 #endif
-
 
 /*
   TCL Hooks
@@ -168,6 +174,60 @@ HelloTimer::handle(Event*) {
                  ((MaxHelloInterval - MinHelloInterval) * Random::uniform());
    assert(interval >= 0);
    Scheduler::instance().schedule(this, &intr, interval);
+}
+
+void Cluster::handle(Event *)                   // modifikasi perhitungan jumlah node tetangga
+{
+  double now = Scheduler::instance().clock(); 
+  FILE *fp;
+  double interval = 5.0;
+  
+  int run = now / interval;
+  if (masuk[run]==0) masuk[run]=0;
+
+  if(now > 0.000000 && masuk[run]==0)
+  {
+    masuk[run]=100;                               // melakukan pengurutan tetangga terbanyak
+    
+    for(int i=0;i<nodes_count;i++)
+    {
+     for(int j=(i+1);j<nodes_count;j++)
+      {
+       if(count_neighbour[i]>count_neighbour[j])
+        {
+         int tmp;
+         tmp=count_neighbour[i];
+         count_neighbour[i]=count_neighbour[j];     // melakukan pengurutan node dengan tetangga terbanyak
+         count_neighbour[j]=tmp;
+        }
+      }
+    }
+
+                                                    // menghitung berapa kali muncul tiap angka
+    for(int i=0;i<nodes_count;i++)
+    {
+     count_mode[i]=0;
+      for(int j=0;j<nodes_count;j++)
+      {
+       if(count_neighbour[i]==count_neighbour[j])
+         {
+          count_mode[i]++;
+         }
+      }
+    }
+
+    
+    for(int i=0;i<nodes_count;i++)                      // menentukan nilai yang paling sering muncul
+    {
+      if(count_mode[i]>th)
+      {
+        th=count_mode[i];
+      }
+    }
+
+    old_th = th;
+  }
+  Scheduler::instance().schedule(this, &intr, interval);
 }
 
 void
@@ -649,174 +709,221 @@ AODV::recvAODV(Packet *p) {
 
 }
 
+void AODV::calculateCHID()   // modifikasi perhitungan threshold pencarian kandidat cluster head
+{
+  int max_degree = -1;                    //  menentukan berapa minimal tetangga agar suatu node dikatakan cluster head
 
-void
-AODV::recvRequest(Packet *p) {
-struct hdr_ip *ih = HDR_IP(p);
-struct hdr_aodv_request *rq = HDR_AODV_REQUEST(p);
-aodv_rt_entry *rt;
+  for (int i = 0; i < sizeof(count_neighbour) / sizeof(*count_neighbour); i++) {
+    if (count_neighbour[i] > max_degree)
+      max_degree = count_neighbour[i];
+  }
 
-  /*
+  if (count_neighbour[index] == max_degree) {
+    CH_ID = index;
+  }
+  else {
+    CH_ID = -1;
+  }
+
+  FILE *fp = fopen("debug.txt", "a");
+  fprintf(fp, "\n %f fungsi AODV::calculateCHID di node %d degreenya: %d, max_degree: %d, CH_ID: %d", CURRENT_TIME, index, count_neighbour[index], max_degree, CH_ID);
+  fclose(fp);
+}
+
+void AODV::recvRequest(Packet *p)
+{
+  struct hdr_ip *ih = HDR_IP(p);
+  struct hdr_aodv_request *rq = HDR_AODV_REQUEST(p);
+  aodv_rt_entry *rt;
+
+
+  calculateCHID();
+  if (CH_ID == -1) {
+    if (rq->rq_cluster_head_index != -1) {
+      // 
+      CH_ID = rq->rq_cluster_head_index;
+    }
+  }
+
+  Node* m_node = Node::get_node_by_address(this->addr());
+  neighbor_list_node* cluster_neighbor_list;
+  cluster_neighbor_list = m_node->neighbor_list_;
+  int count = 0;
+
+  //cout<<"Node id : " <<index<<endl;
+  while(cluster_neighbor_list)
+  {
+      //cout<<"Neighbor ID:"<<cluster_neighbor_list->nodeid<<endl;
+      count++;
+      if(cluster_neighbor_list->next){
+          cluster_neighbor_list=cluster_neighbor_list->next;
+      }
+      else{
+          //cout<<"## Jumlah: "<<count<<endl;
+          //cout<<"## Jumlah: "<<nb_node()<<endl;
+          break;
+      }
+  }
+
+   /*
    * Drop if:
    *      - I'm the source
    *      - I recently heard this request.
    */
 
-  if(rq->rq_src == index) {
-#ifdef DEBUG
-    fprintf(stderr, "%s: got my own REQUEST\n", __FUNCTION__);
-#endif // DEBUG
+  if (rq->rq_src == index)
+  {
     Packet::free(p);
     return;
-  } 
+  }
 
- if (id_lookup(rq->rq_src, rq->rq_bcast_id)) {
+  if (id_lookup(rq->rq_src, rq->rq_bcast_id))
+  {
+    Packet::free(p);
+    return;
+  }
 
-#ifdef DEBUG
-   fprintf(stderr, "%s: discarding request\n", __FUNCTION__);
-#endif // DEBUG
- 
-   Packet::free(p);
-   return;
- }
-
- /*
-  * Cache the broadcast ID
-  */
- id_insert(rq->rq_src, rq->rq_bcast_id);
-
-
-
- /* 
-  * We are either going to forward the REQUEST or generate a
-  * REPLY. Before we do anything, we make sure that the REVERSE
-  * route is in the route table.
-  */
- aodv_rt_entry *rt0; // rt0 is the reverse route 
-   
-   rt0 = rtable.rt_lookup(rq->rq_src);
-   if(rt0 == 0) { /* if not in the route table */
-   // create an entry for the reverse route.
-     rt0 = rtable.rt_add(rq->rq_src);
+   if (count_neighbour[index] < th && rq->rq_dst != index){
+     Packet::free(p);
+     return;
    }
   
-   rt0->rt_expire = max(rt0->rt_expire, (CURRENT_TIME + REV_ROUTE_LIFE));
+  // else {
+    /*
+    * Cache the broadcast ID
+    */
+    id_insert(rq->rq_src, rq->rq_bcast_id);
+    
+    /* 
+    * We are either going to forward the REQUEST or generate a
+    * REPLY. Before we do anything, we make sure that the REVERSE
+    * route is in the route table.
+    */
+    aodv_rt_entry *rt0; // rt0 is the reverse route
+  
+    rt0 = rtable.rt_lookup(rq->rq_src);
+    if (rt0 == 0)
+    { /* if not in the route table */
+      // create an entry for the reverse route.
+      rt0 = rtable.rt_add(rq->rq_src);
+    }
+  
+    rt0->rt_expire = max(rt0->rt_expire, (CURRENT_TIME + REV_ROUTE_LIFE));
+  
+    if ((rq->rq_src_seqno > rt0->rt_seqno) ||
+        ((rq->rq_src_seqno == rt0->rt_seqno) &&
+         (rq->rq_hop_count < rt0->rt_hops)))
+    {
+      // If we have a fresher seq no. or lesser #hops for the
+      // same seq no., update the rt entry. Else don't bother.
+      rt_update(rt0, rq->rq_src_seqno, rq->rq_hop_count, ih->saddr(),
+                max(rt0->rt_expire, (CURRENT_TIME + REV_ROUTE_LIFE)));
+      if (rt0->rt_req_timeout > 0.0)
+      {
+        
+        rt0->rt_req_cnt = 0;
+        rt0->rt_req_timeout = 0.0;
+        rt0->rt_req_last_ttl = rq->rq_hop_count;
+        rt0->rt_expire = CURRENT_TIME + ACTIVE_ROUTE_TIMEOUT;
+      }
+  
+      /* Find out whether any buffered packet can benefit from the 
+        * reverse route.
+        * May need some change in the following code - Mahesh 09/11/99
+        */
+      assert(rt0->rt_flags == RTF_UP);
+      Packet *buffered_pkt;
+      while ((buffered_pkt = rqueue.deque(rt0->rt_dst)))
+      {
+        if (rt0 && (rt0->rt_flags == RTF_UP))
+        {
+          assert(rt0->rt_hops != INFINITY2);
+          forward(rt0, buffered_pkt, NO_DELAY);
+        }
+      }
+    }
+    // End for putting reverse route in rt table
+  
+    /*
+    * We have taken care of the reverse route stuff.
+    * Now see whether we can send a route reply. 
+    */
 
-   if ( (rq->rq_src_seqno > rt0->rt_seqno ) ||
-    	((rq->rq_src_seqno == rt0->rt_seqno) && 
-	 (rq->rq_hop_count < rt0->rt_hops)) ) {
-   // If we have a fresher seq no. or lesser #hops for the 
-   // same seq no., update the rt entry. Else don't bother.
-rt_update(rt0, rq->rq_src_seqno, rq->rq_hop_count, ih->saddr(),
-     	       max(rt0->rt_expire, (CURRENT_TIME + REV_ROUTE_LIFE)) );
-     if (rt0->rt_req_timeout > 0.0) {
-     // Reset the soft state and 
-     // Set expiry time to CURRENT_TIME + ACTIVE_ROUTE_TIMEOUT
-     // This is because route is used in the forward direction,
-     // but only sources get benefited by this change
-       rt0->rt_req_cnt = 0;
-       rt0->rt_req_timeout = 0.0; 
-       rt0->rt_req_last_ttl = rq->rq_hop_count;
-       rt0->rt_expire = CURRENT_TIME + ACTIVE_ROUTE_TIMEOUT;
-     }
-
-     /* Find out whether any buffered packet can benefit from the 
-      * reverse route.
-      * May need some change in the following code - Mahesh 09/11/99
-      */
-     assert (rt0->rt_flags == RTF_UP);
-     Packet *buffered_pkt;
-     while ((buffered_pkt = rqueue.deque(rt0->rt_dst))) {
-       if (rt0 && (rt0->rt_flags == RTF_UP)) {
-	assert(rt0->rt_hops != INFINITY2);
-         forward(rt0, buffered_pkt, NO_DELAY);
-       }
-     }
-   } 
-   // End for putting reverse route in rt table
-
-
- /*
-  * We have taken care of the reverse route stuff.
-  * Now see whether we can send a route reply. 
-  */
-
- rt = rtable.rt_lookup(rq->rq_dst);
-
- // First check if I am the destination ..
-
- if(rq->rq_dst == index) {
-
-#ifdef DEBUG
-   fprintf(stderr, "%d - %s: destination sending reply\n",
-                   index, __FUNCTION__);
-#endif // DEBUG
-
-               
-   // Just to be safe, I use the max. Somebody may have
-   // incremented the dst seqno.
-   seqno = max(seqno, rq->rq_dst_seqno)+1;
-   if (seqno%2) seqno++;
-
-   sendReply(rq->rq_src,           // IP Destination
-             1,                    // Hop Count
-             index,                // Dest IP Address
-             seqno,                // Dest Sequence Num
-             MY_ROUTE_TIMEOUT,     // Lifetime
-             rq->rq_timestamp);    // timestamp
- 
-   Packet::free(p);
- }
-
- // I am not the destination, but I may have a fresh enough route.
-
- else if (rt && (rt->rt_hops != INFINITY2) && 
-	  	(rt->rt_seqno >= rq->rq_dst_seqno) ) {
-
-   //assert (rt->rt_flags == RTF_UP);
-   assert(rq->rq_dst == rt->rt_dst);
-   //assert ((rt->rt_seqno%2) == 0);	// is the seqno even?
-   sendReply(rq->rq_src,
-             rt->rt_hops + 1,
-             rq->rq_dst,
-             rt->rt_seqno,
-	     (u_int32_t) (rt->rt_expire - CURRENT_TIME),
-	     //             rt->rt_expire - CURRENT_TIME,
-             rq->rq_timestamp);
-   // Insert nexthops to RREQ source and RREQ destination in the
-   // precursor lists of destination and source respectively
-   rt->pc_insert(rt0->rt_nexthop); // nexthop to RREQ source
-   rt0->pc_insert(rt->rt_nexthop); // nexthop to RREQ destination
-
-#ifdef RREQ_GRAT_RREP  
-
-   sendReply(rq->rq_dst,
-             rq->rq_hop_count,
-             rq->rq_src,
-             rq->rq_src_seqno,
-	     (u_int32_t) (rt->rt_expire - CURRENT_TIME),
-	     //             rt->rt_expire - CURRENT_TIME,
-             rq->rq_timestamp);
-#endif
-   
-// TODO: send grat RREP to dst if G flag set in RREQ using rq->rq_src_seqno, rq->rq_hop_counT
-   
-// DONE: Included gratuitous replies to be sent as per IETF aodv draft specification. As of now, G flag has not been dynamically used and is always set or reset in aodv-packet.h --- Anant Utgikar, 09/16/02.
-
-	Packet::free(p);
- }
- /*
-  * Can't reply. So forward the  Route Request
-  */
- else {
-   ih->saddr() = index;
-   ih->daddr() = IP_BROADCAST;
-   rq->rq_hop_count += 1;
-   // Maximum sequence number seen en route
-   if (rt) rq->rq_dst_seqno = max(rt->rt_seqno, rq->rq_dst_seqno);
-   forward((aodv_rt_entry*) 0, p, DELAY);
- }
-
+    rt = rtable.rt_lookup(rq->rq_dst);
+  
+    // First check if I am the destination ..
+  
+    if (rq->rq_dst == index)
+    {
+      // Just to be safe, I use the max. Somebody may have
+      // incremented the dst seqno.
+      seqno = max(seqno, rq->rq_dst_seqno) + 1;
+      if (seqno % 2)
+        seqno++;
+  
+      sendReply(rq->rq_src,        // IP Destination
+                1,                 // Hop Count
+                index,             // Dest IP Address
+                seqno,             // Dest Sequence Num
+                MY_ROUTE_TIMEOUT,  // Lifetime
+                rq->rq_timestamp); // timestamp
+  
+      Packet::free(p);
+    }
+  
+    // I am not the destination, but I may have a fresh enough route.
+  
+    else if (rt && (rt->rt_hops != INFINITY2) &&
+             (rt->rt_seqno >= rq->rq_dst_seqno))
+    {
+  
+      //assert (rt->rt_flags == RTF_UP);
+      assert(rq->rq_dst == rt->rt_dst);
+      //assert ((rt->rt_seqno%2) == 0); // is the seqno even?
+      sendReply(rq->rq_src,
+                rt->rt_hops + 1,
+                rq->rq_dst,
+                rt->rt_seqno,
+                (u_int32_t)(rt->rt_expire - CURRENT_TIME),
+                //             rt->rt_expire - CURRENT_TIME,
+                rq->rq_timestamp);
+      // Insert nexthops to RREQ source and RREQ destination in the
+      // precursor lists of destination and source respectively
+      rt->pc_insert(rt0->rt_nexthop); // nexthop to RREQ source
+      rt0->pc_insert(rt->rt_nexthop); // nexthop to RREQ destination
+  
+  #ifdef RREQ_GRAT_RREP
+  
+      sendReply(rq->rq_dst,
+                rq->rq_hop_count,
+                rq->rq_src,
+                rq->rq_src_seqno,
+                (u_int32_t)(rt->rt_expire - CURRENT_TIME),
+                //             rt->rt_expire - CURRENT_TIME,
+                rq->rq_timestamp);
+  #endif
+  
+      // TODO: send grat RREP to dst if G flag set in RREQ using rq->rq_src_seqno, rq->rq_hop_counT
+  
+      // DONE: Included gratuitous replies to be sent as per IETF aodv draft specification. As of now, G flag has not been dynamically used and is always set or reset in aodv-packet.h --- Anant Utgikar, 09/16/02.
+  
+      Packet::free(p);
+    }
+    /*
+    * Can't reply. So forward the  Route Request
+    */
+    else
+    {
+      ih->saddr() = index;
+      ih->daddr() = IP_BROADCAST;
+      rq->rq_hop_count += 1;
+      // Maximum sequence number seen en route
+      if (rt)
+        rq->rq_dst_seqno = max(rt->rt_seqno, rq->rq_dst_seqno);
+      forward((aodv_rt_entry *)0, p, DELAY);
+    }
+  // }
+  
 }
 
 
@@ -1178,6 +1285,18 @@ aodv_rt_entry *rt = rtable.rt_lookup(dst);
  rq->rq_src_seqno = seqno;
  rq->rq_timestamp = CURRENT_TIME;
 
+  int cluster_head = CH_ID; // modifikasi kandidat cluster head menjadi cluster head dan pemberian ID pada untuk broadcast
+
+  if (CH_ID == -1) // Init cluster head belum ditemukan diawal, lakukan perhitungan
+    
+    calculateCHID();
+
+  rq->rq_cluster_head_index = CH_ID;
+  CH_ID = cluster_head;
+
+  if (CH_ID != index) // modifikasi jika suatu node bukan CH, lakukan perhitungan. Lalu lakukan broadcast ke node lain jika CH
+    
+    rq->rq_bcast_id = CH_ID;  
  Scheduler::instance().schedule(target_, p, 0.);
 
 }
@@ -1312,18 +1431,46 @@ AODV_Neighbor *nb;
 
  nb = nb_lookup(rp->rp_dst);
  if(nb == 0) {
-   nb_insert(rp->rp_dst);
- }
- else {
-   nb->nb_expire = CURRENT_TIME +
-                   (1.5 * ALLOWED_HELLO_LOSS * HELLO_INTERVAL);
- }
+  sender_node->addNeighbor(receiver_node);
+    receiver_node->addNeighbor(sender_node);
 
- Packet::free(p);
+    nb_insert(rp->rp_dst);
+
+    
+    Node* m_node = Node::get_node_by_address(this->addr());
+    neighbor_list_node* cluster_neighbor_list;
+    cluster_neighbor_list = m_node->neighbor_list_;
+    int count = 0;
+    
+    //cout<<"##Node id : " <<index<<endl;
+    while(cluster_neighbor_list)
+    {
+        //cout<<"##Neighbor ID:"<<cluster_neighbor_list->nodeid<<endl;
+        count++;
+        if(cluster_neighbor_list->next){
+            cluster_neighbor_list=cluster_neighbor_list->next;
+        }
+        else{
+            //cout<<"## Jumlah: "<<count<<endl;
+            //cout<<"## Jumlah: "<<nb_node()<<endl;
+            break;
+        }
+    }
+    //cout<<"##Jumlah: "<<count<<endl;
+  }
+  else
+  {
+    nb->nb_expire = CURRENT_TIME +
+                    (1.5 * ALLOWED_HELLO_LOSS * HELLO_INTERVAL);
+  }
+  
+
+  Packet::free(p);
 }
 
 void
 AODV::nb_insert(nsaddr_t id) {
+count_neighbour[index]+=1;     
 AODV_Neighbor *nb = new AODV_Neighbor(id);
 
  assert(nb);
