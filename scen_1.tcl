@@ -137,27 +137,38 @@ $node_(17) random-motion 0
 # $ns at 20.0 "$node_(0) idle"
 # $ns at 20.0 "$ftp set idle_time_ 50000ms"
 
+# set tcp [new Agent/TCP/Newreno]
+# $tcp set class_ 2
+# set sink [new Agent/TCPSink]
+# $ns attach-agent $node_(0) $tcp
+# $ns attach-agent $node_(2) $sink
+# $ns connect $tcp $sink
+# set ftp [new Application/FTP]
+# $ftp attach-agent $tcp
+# $ns at 0.5 "$ftp start"
+# $ns at 1.5 "$ftp stop"
+
 set tcp [new Agent/TCP/Newreno]
 $tcp set class_ 2
 set sink [new Agent/TCPSink]
-$ns attach-agent $node_(0) $tcp
-$ns attach-agent $node_(2) $sink
+$ns attach-agent $node_(5) $tcp
+$ns attach-agent $node_(13) $sink
 $ns connect $tcp $sink
 set ftp [new Application/FTP]
 $ftp attach-agent $tcp
 $ns at 0.5 "$ftp start"
-$ns at 1.5 "$ftp stop"
+$ns at 1.0 "$ftp stop"
 
 set tcp [new Agent/TCP/Newreno]
 $tcp set class_ 2
 set sink [new Agent/TCPSink]
 $ns attach-agent $node_(4) $tcp
-$ns attach-agent $node_(11) $sink
+$ns attach-agent $node_(13) $sink
 $ns connect $tcp $sink
 set ftp [new Application/FTP]
 $ftp attach-agent $tcp
-$ns at 2.0 "$ftp start"
-$ns at 3.0 "$ftp stop"
+$ns at 1.5 "$ftp start"
+$ns at 2.0 "$ftp stop"
 
 set tcp [new Agent/TCP/Newreno]
 $tcp set class_ 2
@@ -167,8 +178,8 @@ $ns attach-agent $node_(17) $sink
 $ns connect $tcp $sink
 set ftp [new Application/FTP]
 $ftp attach-agent $tcp
-$ns at 3.5 "$ftp start"
-$ns at 4.5 "$ftp stop"
+$ns at 2.5 "$ftp start"
+$ns at 3.0 "$ftp stop"
 
 
 # Printing the window size
