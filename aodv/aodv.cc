@@ -40,7 +40,10 @@ The AODV code developed by the CMU/MONARCH group was optimized and tuned by Sami
 #define max(a, b) ((a) > (b) ? (a) : (b))
 #define CURRENT_TIME Scheduler::instance().clock()
 
-//#define DEBUG
+#define DROP_EXCEED_CONGESTION_LIMIT "DECL"
+#define CONGESTION_THRESHOLD 5
+
+#define DEBUG
 //#define ERROR
 
 int count_neighbour[1000];    // menghitung jumlah tetangga tiap node
@@ -1198,6 +1201,22 @@ void AODV::recvReply(Packet *p)
   fprintf(fp, "\n %f fungsi AODV::recvReply", now);
   fclose(fp);
 
+  #ifdef DEBUG
+  // FILE *fp;
+  fp = fopen("debug.txt", "a"); 
+  fprintf(fp, "\n%f %s: recvReply pada node : %d congestion counter : %d ", CURRENT_TIME, __FUNCTION__,index,rtable.congestion_counter);
+  fclose(fp);
+  #endif // DEBUG
+
+  rtable.congestion_counter++;
+
+  #ifdef DEBUG
+    fp = fopen("debug.txt", "a"); 
+    fprintf(fp, "\n%f %s: recvReply pada node : %d congestion counter : %d ", CURRENT_TIME, __FUNCTION__,index,rtable.congestion_counter);
+    fclose(fp);
+  #endif // DEBUG
+
+
   //struct hdr_cmn *ch = HDR_CMN(p);
   struct hdr_ip *ih = HDR_IP(p);
   struct hdr_aodv_reply *rp = HDR_AODV_REPLY(p);
@@ -1326,12 +1345,22 @@ void AODV::recvError(Packet *p)
   fprintf(fp, "\n %f fungsi AODV::recvError", now);
   fclose(fp);
 
+  if (rtable.congestion_counter > 0)
+    rtable.congestion_counter--;
+
   struct hdr_ip *ih = HDR_IP(p);
   struct hdr_aodv_error *re = HDR_AODV_ERROR(p);
   aodv_rt_entry *rt;
   u_int8_t i;
   Packet *rerr = Packet::alloc();
   struct hdr_aodv_error *nre = HDR_AODV_ERROR(rerr);
+
+  #ifdef DEBUG
+    // FILE *fp;
+    fp = fopen("debug.txt", "a"); 
+    fprintf(fp, "\n%s (%f): node %d, congestion_counter: %d\n", __FUNCTION__, CURRENT_TIME, index, rtable.congestion_counter);
+    fclose(fp);
+  #endif // DEBUG
 
   nre->DestCount = 0;
 
@@ -1402,6 +1431,7 @@ void AODV::forward(aodv_rt_entry *rt, Packet *p, double delay)
 
   struct hdr_cmn *ch = HDR_CMN(p);
   struct hdr_ip *ih = HDR_IP(p);
+  struct hdr_aodv_reply *rp = HDR_AODV_REPLY(p);
 
   //  #ifdef DEBUG && index > 0
   //   // manet
@@ -1418,6 +1448,27 @@ void AODV::forward(aodv_rt_entry *rt, Packet *p, double delay)
   //   // fprintf(fp, "\n%.6f  NODE: %i %i %i %i %i %.4lf %d", CURRENT_TIME, rt->rt_dst, rt->rt_nexthop, rt->rt_hops, rt->rt_seqno, rt->rt_expire, rt->rt_flags);
   //   // fprintf(fp, "\n%.6f  NODE: %d %d %d %d %d %.4f %d", CURRENT_TIME, rt->rt_dst, rt->rt_nexthop, rt->rt_hops, rt->rt_seqno, rt->rt_expire, rt->rt_flags); 
   // #endif
+  if (rtable.congestion_counter >= CONGESTION_THRESHOLD)
+  {
+    #ifdef DEBUG
+    FILE *fp;
+    fp = fopen("debug.txt", "a"); 
+    fprintf(fp, "\n%f %s: sedang pada node : %d, forwarding from %d to %d, congestion counter : %d  di drop", CURRENT_TIME, __FUNCTION__,index, rp->rp_src, rp->rp_dst, rtable.congestion_counter);
+    fclose(fp);
+  #endif // DEBUG
+    Packet::free(p);
+    drop(p, DROP_EXCEED_CONGESTION_LIMIT);
+    return;
+  }
+  else {
+    #ifdef DEBUG
+    FILE *fp;
+    fp = fopen("debug.txt", "a"); 
+    fprintf(fp, "\n%f %s: sedang pada node : %d, forwarding from %d to %d, congestion counter : %d", CURRENT_TIME, __FUNCTION__,index, rp->rp_src, rp->rp_dst, rtable.congestion_counter);
+    fclose(fp);
+  #endif // DEBUG
+  }
+
 
   if (ih->ttl_ == 0)
   {

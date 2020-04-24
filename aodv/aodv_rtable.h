@@ -152,6 +152,7 @@ class aodv_rtable {
         aodv_rt_entry*       rt_add(nsaddr_t id);
         void                 rt_delete(nsaddr_t id);
         aodv_rt_entry*       rt_lookup(nsaddr_t id);
+        int                  congestion_counter;
 
  private:
         LIST_HEAD(aodv_rthead, aodv_rt_entry) rthead;
