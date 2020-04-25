@@ -41,7 +41,7 @@ The AODV code developed by the CMU/MONARCH group was optimized and tuned by Sami
 #define CURRENT_TIME Scheduler::instance().clock()
 
 #define DROP_EXCEED_CONGESTION_LIMIT "DECL"
-#define CONGESTION_THRESHOLD 3
+#define CONGESTION_THRESHOLD 5
 
 #define DEBUG
 //#define ERROR

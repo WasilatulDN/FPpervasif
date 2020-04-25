@@ -181,7 +181,6 @@ $ftp attach-agent $tcp
 $ns at 2.5 "$ftp start"
 $ns at 3.0 "$ftp stop"
 
-
 # Printing the window size
 # proc plotWindow {tcpSource file} {
 # global ns
