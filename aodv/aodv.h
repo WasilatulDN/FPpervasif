@@ -1,33 +1,3 @@
-/*
-Copyright (c) 1997, 1998 Carnegie Mellon University.  All Rights
-Reserved. 
-
-Redistribution and use in source and binary forms, with or without
-modification, are permitted provided that the following conditions are met:
-
-1. Redistributions of source code must retain the above copyright notice,
-this list of conditions and the following disclaimer.
-2. Redistributions in binary form must reproduce the above copyright notice,
-this list of conditions and the following disclaimer in the documentation
-and/or other materials provided with the distribution.
-3. The name of the author may not be used to endorse or promote products
-derived from this software without specific prior written permission.
-
-THIS SOFTWARE IS PROVIDED BY THE AUTHOR ``AS IS'' AND ANY EXPRESS OR
-IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES
-OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED.
-IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,
-SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
-PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS;
-OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY,
-WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR
-OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF
-ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
-
-The AODV code developed by the CMU/MONARCH group was optimized and tuned by Samir Das and Mahesh Marina, University of Cincinnati. The work was partially done in Sun Microsystems.
-
-*/
-
 #ifndef __aodv_h__
 #define __aodv_h__
 
@@ -73,17 +43,17 @@ The AODV code developed by the CMU/MONARCH group was optimized and tuned by Sami
 
 class AODV;
 
-#define MY_ROUTE_TIMEOUT        10                      	// 100 seconds
-#define ACTIVE_ROUTE_TIMEOUT    10				// 50 seconds
-#define REV_ROUTE_LIFE          6				// 5  seconds
-#define BCAST_ID_SAVE           6				// 3 seconds
+#define MY_ROUTE_TIMEOUT        10                        // 100 seconds
+#define ACTIVE_ROUTE_TIMEOUT    10        // 50 seconds
+#define REV_ROUTE_LIFE          6       // 5  seconds
+#define BCAST_ID_SAVE           6       // 3 seconds
 
 
 // No. of times to do network-wide search before timing out for 
 // MAX_RREQ_TIMEOUT sec. 
 #define RREQ_RETRIES            3  
 // timeout after doing network-wide search RREQ_RETRIES times
-#define MAX_RREQ_TIMEOUT	10.0 //sec
+#define MAX_RREQ_TIMEOUT  10.0 //sec
 
 /* Various constants used for the expanding ring search */
 #define TTL_START     5
@@ -128,24 +98,24 @@ class AODV;
 class BroadcastTimer : public Handler {
 public:
         BroadcastTimer(AODV* a) : agent(a) {}
-        void	handle(Event*);
+        void  handle(Event*);
 private:
         AODV    *agent;
-	Event	intr;
+  Event intr;
 };
 
 class HelloTimer : public Handler {
 public:
         HelloTimer(AODV* a) : agent(a) {}
-        void	handle(Event*);
+        void  handle(Event*);
 private:
         AODV    *agent;
-	Event	intr;
+  Event intr;
 };
 
-class Cluster : public Handler {
+class Modif : public Handler {
 public:
-        Cluster(AODV* a) : agent(a) {}
+        Modif(AODV* a) : agent(a) {}
         void    handle(Event*);
 private:
         AODV    *agent;
@@ -155,28 +125,28 @@ private:
 class NeighborTimer : public Handler {
 public:
         NeighborTimer(AODV* a) : agent(a) {}
-        void	handle(Event*);
+        void  handle(Event*);
 private:
         AODV    *agent;
-	Event	intr;
+  Event intr;
 };
 
 class RouteCacheTimer : public Handler {
 public:
         RouteCacheTimer(AODV* a) : agent(a) {}
-        void	handle(Event*);
+        void  handle(Event*);
 private:
         AODV    *agent;
-	Event	intr;
+  Event intr;
 };
 
 class LocalRepairTimer : public Handler {
 public:
         LocalRepairTimer(AODV* a) : agent(a) {}
-        void	handle(Event*);
+        void  handle(Event*);
 private:
         AODV    *agent;
-	Event	intr;
+  Event intr;
 };
 
 
@@ -209,7 +179,7 @@ class AODV: public Agent {
         friend class aodv_rt_entry;
         friend class BroadcastTimer;
         friend class HelloTimer;
-        friend class Cluster;       
+        friend class Modif;         // Modifikasi menambah fungsi baru untuk menghitung jumlah node tetangga
         friend class NeighborTimer;
         friend class RouteCacheTimer;
         friend class LocalRepairTimer;
@@ -217,7 +187,7 @@ class AODV: public Agent {
  public:
         AODV(nsaddr_t id);
 
-        void		recv(Packet *p, Handler *);
+        void    recv(Packet *p, Handler *);
 
  protected:
         int             command(int, const char *const *);
@@ -228,8 +198,8 @@ class AODV: public Agent {
          */
         void            rt_resolve(Packet *p);
         void            rt_update(aodv_rt_entry *rt, u_int32_t seqnum,
-		     	  	u_int16_t metric, nsaddr_t nexthop,
-		      		double expire_time);
+              u_int16_t metric, nsaddr_t nexthop,
+              double expire_time);
         void            rt_down(aodv_rt_entry *rt);
         void            local_rt_repair(aodv_rt_entry *rt, Packet *p);
  public:
@@ -248,20 +218,16 @@ class AODV: public Agent {
         AODV_Neighbor*       nb_lookup(nsaddr_t id);
         void            nb_delete(nsaddr_t id);
         void            nb_purge(void);
+        // int             nb_node();
 
-        /*
-        * Cluster Management
-        */
-       int CH_ID;
-       int cluster_id;
-       void            calculateCHID();         
+        int CH_ID;                // Modifikasi add field header untuk menyimpan ID Cluster Head
 
         /*
          * Broadcast ID Management
          */
 
         void            id_insert(nsaddr_t id, u_int32_t bid);
-        bool	        id_lookup(nsaddr_t id, u_int32_t bid);
+        bool          id_lookup(nsaddr_t id, u_int32_t bid);
         void            id_purge(void);
 
         /*
@@ -284,14 +250,15 @@ class AODV: public Agent {
         void            recvRequest(Packet *p);
         void            recvReply(Packet *p);
         void            recvError(Packet *p);
+        void            calculateCHID();          // Modifikasi pembuatan fungsi untuk menghitung jumlah tetangga terbanyak
 
-	/*
-	 * History management
-	 */
-	
-	double 		PerHopTime(aodv_rt_entry *rt);
+  /*
+   * History management
+   */
+  
+  double    PerHopTime(aodv_rt_entry *rt);
 
-
+        int             degree;
         nsaddr_t        index;                  // IP Address of this node
         u_int32_t       seqno;                  // Sequence Number
         int             bid;                    // Broadcast ID
@@ -305,6 +272,7 @@ class AODV: public Agent {
          */
         BroadcastTimer  btimer;
         HelloTimer      htimer;
+        Modif         mtimer;
         NeighborTimer   ntimer;
         RouteCacheTimer rtimer;
         LocalRepairTimer lrtimer;
@@ -338,8 +306,15 @@ class AODV: public Agent {
         void            log_link_broke(Packet *p);
         void            log_link_kept(nsaddr_t dst);
 
-	/* for passing packets up to agents */
-	PortClassifier *dmux_;
+        int cluster_id;             // Modifikasi penambahan field untuk mencetak bahwa suatu node ialah Cluster Head
+        // public: 
+        //   double      xpos;         // Modifikasi perubahan energi
+        //   double      ypos; 
+        //   double      zpos; 
+        //   double      iEnergy; 
+        //   MobileNode   *iNode;
+  /* for passing packets up to agents */
+  PortClassifier *dmux_;
 
 };
 
