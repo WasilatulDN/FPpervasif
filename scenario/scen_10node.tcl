@@ -86,35 +86,35 @@ $node_(9) set Z_ 0.000000000000
 set tcp [new Agent/TCP/Newreno]
 $tcp set class_ 2
 set sink [new Agent/TCPSink]
-$ns attach-agent $node_(5) $tcp
-$ns attach-agent $node_(2) $sink
-$ns connect $tcp $sink
-set ftp [new Application/FTP]
-$ftp attach-agent $tcp
-$ns at 0.5 "$ftp start"
-$ns at 5.5 "$ftp stop"
-
-set tcp [new Agent/TCP/Newreno]
-$tcp set class_ 2
-set sink [new Agent/TCPSink]
 $ns attach-agent $node_(9) $tcp
-$ns attach-agent $node_(6) $sink
+$ns attach-agent $node_(1) $sink
 $ns connect $tcp $sink
 set ftp [new Application/FTP]
 $ftp attach-agent $tcp
-$ns at 6.0 "$ftp start"
-$ns at 11.0 "$ftp stop"
+$ns at 1 "$ftp start"
+$ns at 10.0 "$ftp stop"
 
-set tcp [new Agent/TCP/Newreno]
-$tcp set class_ 2
-set sink [new Agent/TCPSink]
-$ns attach-agent $node_(7) $tcp
-$ns attach-agent $node_(0) $sink
-$ns connect $tcp $sink
-set ftp [new Application/FTP]
-$ftp attach-agent $tcp
-$ns at 6.0 "$ftp start"
-$ns at 11.0 "$ftp stop"
+# set tcp [new Agent/TCP/Newreno]
+# $tcp set class_ 2
+# set sink [new Agent/TCPSink]
+# $ns attach-agent $node_(9) $tcp
+# $ns attach-agent $node_(6) $sink
+# $ns connect $tcp $sink
+# set ftp [new Application/FTP]
+# $ftp attach-agent $tcp
+# $ns at 6.0 "$ftp start"
+# $ns at 11.0 "$ftp stop"
+
+# set tcp [new Agent/TCP/Newreno]
+# $tcp set class_ 2
+# set sink [new Agent/TCPSink]
+# $ns attach-agent $node_(7) $tcp
+# $ns attach-agent $node_(0) $sink
+# $ns connect $tcp $sink
+# set ftp [new Application/FTP]
+# $ftp attach-agent $tcp
+# $ns at 6.0 "$ftp start"
+# $ns at 11.0 "$ftp stop"
 
 # set tcp [new Agent/TCP/Newreno]
 # $tcp set class_ 2

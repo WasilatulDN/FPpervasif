@@ -14,7 +14,7 @@ set val(nn)             50                        ;# number of mobilenodes
 set val(rp)             AODV                       ;# routing protocol
 set val(x)              1500                        ;# X dimension of topography
 set val(y)              1500                       ;# Y dimension of topography
-set val(stop)           10                       ;# time of simulation end
+set val(stop)           15                       ;# time of simulation end
 
 set ns            [new Simulator]
 set tracefd       [open scen_50node.tr w]
@@ -206,35 +206,35 @@ $node_(49) set Z_ 0.000000000000
 set tcp [new Agent/TCP/Newreno]
 $tcp set class_ 2
 set sink [new Agent/TCPSink]
-$ns attach-agent $node_(39) $tcp
-$ns attach-agent $node_(26) $sink
-$ns connect $tcp $sink
-set ftp [new Application/FTP]
-$ftp attach-agent $tcp
-$ns at 0.5 "$ftp start"
-$ns at 5.5 "$ftp stop"
-
-set tcp [new Agent/TCP/Newreno]
-$tcp set class_ 2
-set sink [new Agent/TCPSink]
 $ns attach-agent $node_(5) $tcp
-$ns attach-agent $node_(7) $sink
+$ns attach-agent $node_(11) $sink
 $ns connect $tcp $sink
 set ftp [new Application/FTP]
 $ftp attach-agent $tcp
-$ns at 0.5 "$ftp start"
-$ns at 5.5 "$ftp stop"
+$ns at 1.0 "$ftp start"
+$ns at 10.0 "$ftp stop"
 
-set tcp [new Agent/TCP/Newreno]
-$tcp set class_ 2
-set sink [new Agent/TCPSink]
-$ns attach-agent $node_(4) $tcp
-$ns attach-agent $node_(13) $sink
-$ns connect $tcp $sink
-set ftp [new Application/FTP]
-$ftp attach-agent $tcp
-$ns at 6.0 "$ftp start"
-$ns at 11.0 "$ftp stop"
+# set tcp [new Agent/TCP/Newreno]
+# $tcp set class_ 2
+# set sink [new Agent/TCPSink]
+# $ns attach-agent $node_(5) $tcp
+# $ns attach-agent $node_(7) $sink
+# $ns connect $tcp $sink
+# set ftp [new Application/FTP]
+# $ftp attach-agent $tcp
+# $ns at 0.5 "$ftp start"
+# $ns at 1.0 "$ftp stop"
+
+# set tcp [new Agent/TCP/Newreno]
+# $tcp set class_ 2
+# set sink [new Agent/TCPSink]
+# $ns attach-agent $node_(4) $tcp
+# $ns attach-agent $node_(13) $sink
+# $ns connect $tcp $sink
+# set ftp [new Application/FTP]
+# $ftp attach-agent $tcp
+# $ns at 1.5 "$ftp start"
+# $ns at 2.0 "$ftp stop"
 
 # set tcp [new Agent/TCP/Newreno]
 # $tcp set class_ 2
